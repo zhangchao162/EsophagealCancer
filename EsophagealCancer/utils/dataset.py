@@ -35,7 +35,8 @@ class BaseDataset(Dataset):
 
     def __getitem__(self, idx):
         data = Image.open(self.images[idx]).convert("RGB")
-        label = Image.open(self.images[idx].replace(self.image_suffix, self.mask_suffix)).convert("1")
+        label = Image.open(
+            self.images[idx].replace(self.image_suffix, self.mask_suffix).replace("jpg", "png")).convert("L")
         # label = cv2.imread(self.images[idx].replace(self.image_suffix, self.mask_suffix), flags=0)
         data = self.transform(data)
         label = self.transform(label)

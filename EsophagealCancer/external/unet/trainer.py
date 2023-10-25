@@ -34,7 +34,7 @@ def train_model(
         dir_checkpoint='./checkpoints'):
     # 1. Create Dataset
     dataset = BaseDataset(image_path_list=image_list,
-                          image_suffix='image',
+                          image_suffix='equalhist',
                           mask_suffix='label',
                           scale=1.)
     # 2. Split into train / validation partitions
@@ -44,7 +44,8 @@ def train_model(
                                       lengths=[n_train, n_val],
                                       generator=torch.Generator().manual_seed(0))
     # 3. Create data loader
-    loader_args = dict(batch_size=batch_size, num_workers=os.cpu_count(), pin_memory=True)
+    # loader_args = dict(batch_size=batch_size, num_workers=os.cpu_count(), pin_memory=True)
+    loader_args = dict(batch_size=batch_size, num_workers=1, pin_memory=True)
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
     val_loader = DataLoader(val_set, shuffle=False, drop_last=True, **loader_args)
     # 4. Setup the optimizer, the loss, the learning rate scheduler and the scaling for AMP
@@ -71,6 +72,8 @@ def train_model(
 
             image = image.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
             label = label.to(device=device, dtype=torch.long)
+            if label.size(1) == 1:
+                label.squeeze_(1)
 
             with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
                 pred = model(image)
@@ -101,7 +104,7 @@ def train_model(
 
         if save_checkpoint:
             os.makedirs(dir_checkpoint, exist_ok=True)
-            torch.save(model, osp.join(dir_checkpoint, f'checkpoint_epoch{eph}.pth'))
+            torch.save(model, osp.join(dir_checkpoint, f'unet_checkpoint.bin'))
 
 
 def evaluate(model, data_loader, device, amp):
@@ -136,22 +139,4 @@ def evaluate(model, data_loader, device, amp):
     return dice_score / max(len(data_loader), 1)
 
 
-if __name__ == "__main__":
-    image_list = []
-    n_classes = 3
-    train_model(
-        image_list,
-        n_classes,
-        bilinear=False,
-        val_percent=0.1,
-        batch_size=1,
-        epochs=100,
-        learning_rate=1e-5,
-        weight_decay=1e-8,
-        momentum=0.999,
-        gpu=0,
-        amp=False,
-        gradient_clipping=1.0,
-        save_checkpoint=True,
-        dir_checkpoint='./checkpoints'
-    )
+
